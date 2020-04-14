@@ -1,0 +1,55 @@
+#
+# Wyres
+#
+
+# all board specific config is in the target syscfg.yml.
+
+# here we define the generic build info that jenkins can overwrite
+syscfg.defs:
+    BUILD_VERSION_MAJOR: 
+        description: the defined version major value
+        value: 0
+    BUILD_VERSION_MINOR: 
+        description: the defined version minor value
+        value: 0
+    BUILD_VERSION_DEVNUMBER: 
+        description: the builds iteration number if not a final release build
+        value: 0
+
+
+    UNITTEST:
+        description: "enable unittest execution in main"
+        value: 0
+
+
+    BUTTON_IO:
+        description: "GPIO for button connection"
+        value: -1
+
+    DOOR_IO:
+        description: "GPIO for door state detector connection"
+        value: -1
+            
+
+#set application level config here (rather than in every target)
+syscfg.vals:
+      # check stack overflows always to ensure tasks stacks are correctly sized
+    OS_CTX_SW_STACK_CHECK: 1
+    # call our CB during mynewt assert handling
+    OS_ASSERT_CB: 1
+    # no FILE/LINE info in assert calls (uses too much space in image)
+    OS_CRASH_FILE_LINE: 0
+
+    # main() stack size- needs to be reasonable as we use it for event execution for certain mgrs (uart etc)
+    OS_MAIN_STACK_SIZE: 512
+    # rebootmgr handles watchdogging not the OS
+    WATCHDOG_INTERVAL : 0
+
+    # appcore setup for this application : always send UL every 5 minutes when activated, use SF12 for range, and blick leds to show working
+    IDLETIME_MOVING_SECS: 300
+    IDLETIME_NOTMOVING_MINS: 5
+    IDLETIME_INACTIVE_MINS: 120
+
+    LORA_DEFAULT_ADR: false
+    LORA_DEFAULT_SF: 12
+    ENABLE_ACTIVE_LEDS: 1

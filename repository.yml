@@ -1,4 +1,4 @@
-repo.name: mynewt_app_wproto_marmotte
+repo.name: mynewt_app_iocontrol
 repo.versions:
     "0.0.0": "master"
     "0-dev": "0.0.0"

@@ -11,16 +11,7 @@
  * language governing permissions and limitations under the License.
 */
 /**
- * Cage door and test button handling app module
- *  - short button press = test reception of lora : ignore if 'device inactive'
- *      - force UL with ack request TLV, and enqueue 2nd force UL to ensure get reponse
- *      - flash leds during 'data collection' to show whats happening
- *  - long button press - change device state (if active, deactivate, if inactive, activate)
- *  - door close callback : 
- *      - force UL, set flag to indicate alert not acked, request app ack
- *      - when get ack action then reset flag, reset idle times
- *  - tick cb:
- *      - if alert not acked flag set, then force UL (ie get 1 UL/min until acked)
+ * Generic IO handling module for app-core
  */
 
 #include "os/os.h"
@@ -39,8 +30,8 @@
 // Use the PTI module id, as won't have both at same time
 #define MY_MOD_ID   (APP_MOD_PTI)
 
-#define USER_BUTTON  ((int8_t)MYNEWT_VAL(BUTTON_IO))
-#define DOOR_CONTACT  ((int8_t)MYNEWT_VAL(DOOR_IO))
+#define USER_BUTTON  ((int8_t)MYNEWT_VAL(IO_1))
+#define DOOR_CONTACT  ((int8_t)MYNEWT_VAL(IO_2))
 
 #define DOOR_OPEN (0)
 #define DOOR_CLOSED (1)

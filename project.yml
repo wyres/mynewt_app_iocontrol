@@ -17,7 +17,7 @@
 # under the License.
 #
 
-project.name: "mynewt_app_wproto_marmotte"
+project.name: "mynewt_app_iocontrol"
 
 project.repositories:
     - apache-mynewt-core

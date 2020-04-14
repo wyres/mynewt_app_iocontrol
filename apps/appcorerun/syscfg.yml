@@ -21,13 +21,37 @@ syscfg.defs:
         description: "enable unittest execution in main"
         value: 0
 
-
-    BUTTON_IO:
-        description: "GPIO for button connection"
+    # mod-io uses 'generic' io names, remapped to physical GPIOs in target
+    IO_1:
+        description: "GPIO 1"
         value: -1
 
-    DOOR_IO:
-        description: "GPIO for door state detector connection"
+    IO_2:
+        description: "GPIO 2"
+        value: -1
+            
+    IO_3:
+        description: "GPIO 3"
+        value: -1
+            
+    IO_4:
+        description: "GPIO 4"
+        value: -1
+            
+    IO_5:
+        description: "GPIO 5"
+        value: -1
+            
+    IO_6:
+        description: "GPIO 6"
+        value: -1
+            
+    IO_7:
+        description: "GPIO 7"
+        value: -1
+            
+    IO_8:
+        description: "GPIO 8"
         value: -1
             
 
@@ -45,11 +69,12 @@ syscfg.vals:
     # rebootmgr handles watchdogging not the OS
     WATCHDOG_INTERVAL : 0
 
-    # appcore setup for this application : always send UL every 5 minutes when activated, use SF12 for range, and blick leds to show working
-    IDLETIME_MOVING_SECS: 300
-    IDLETIME_NOTMOVING_MINS: 5
+    # appcore setup for this application : always send UL 1 minute when activated, use SF10 for range, and blick leds to show working
+    # essentially we're assuming a powered device
+    IDLETIME_MOVING_SECS: 60
+    IDLETIME_NOTMOVING_MINS: 1
     IDLETIME_INACTIVE_MINS: 120
 
     LORA_DEFAULT_ADR: false
-    LORA_DEFAULT_SF: 12
+    LORA_DEFAULT_SF: 10
     ENABLE_ACTIVE_LEDS: 1

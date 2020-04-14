@@ -19,7 +19,7 @@
 
 pkg.name: apps/appcorerun
 pkg.type: app
-pkg.description: WProto based targets
+pkg.description: app-core based targets
 pkg.author: "Wyres"
 pkg.homepage: "wyres.eu"
 pkg.keywords:

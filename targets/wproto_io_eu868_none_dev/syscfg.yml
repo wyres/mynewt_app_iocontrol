@@ -1,0 +1,66 @@
+syscfg.vals: 
+    # mod-io expects us to map its 'ioId' names to pysical GPIO ports
+    IO_1     : CN4_7       # PB12
+    IO_2     : CN4_3       # PB14
+    # etc
+
+    BSP_POWER_SETUP: 0
+    OS_TICKLESS_RTC: 0
+
+    # dev build
+    BUILD_RELEASE : 0
+
+    # check stack overflows always
+    OS_CTX_SW_STACK_CHECK: 1
+    # call our CB for assert handling
+    OS_ASSERT_CB: 1
+    # no FILE/LINE info in assert calls
+    OS_CRASH_FILE_LINE: 0
+
+    #using a stlink with openocd on W10
+    OPENOCD_STLINK_WINDOWS: 1
+
+    #only use console on uart0 if no daughter card
+    CONSOLE_UART: 0
+    # how to configure a string in these defines? or should it just be "0"? anyway uart0 is default...
+    CONSOLE_UART_DEV: '"UART0_DEV"'
+    CONSOLE_UART_BAUD: 115200
+    CONSOLE_UART_TX_BUF_SIZE: 256
+
+    WCONSOLE_ENABLED: 1
+    WCONSOLE_UART_DEV:  'UART0_DEV'
+    WCONSOLE_UART_BAUD: 115200
+    WCONSOLE_UART_SELECT: -1         # ext uart selector on dcard
+
+    #  enable debug bitbang uart defined in our bsp if reqd for logs
+    UART_DBG: 0
+    UART_DBG_BAUD: 19200
+    UARTBB_0_PIN_TX : -1     # extbutton
+    UARTBB_0_PIN_RX : -1      # tx only
+    
+    # doing logging to a UART?
+    LOG_UART_ENABLED: 1
+    #set debug uart device
+    LOG_UART: 'UART0_DEV'             #'UARTDBG_DEV'
+    LOG_UART_BAUDRATE: 115200
+    LOG_UART_SELECT: -1
+
+    # if using a daughter card with a uart selector set control pins
+    UART_SELECT0: -1
+    UART_SELECT1: -1
+    
+    #lora wan
+    LORAWAN_REGION_EU868: 1
+    LORAWAN_SE_SOFT: 1
+    LORAWAN_API_TRACE_ACTIVATION: 0
+    LORAWAN_API_DEFAULT_DR: 3
+    SX127X_RADIO_WAKEUP_TIME: 10
+    SX127X_RADIO_MIN_RX_DURATION: 600
+
+    # redefined here so can compare with app task prios above
+    SM_TASK_PRIO: 199
+    LEDMGR_TASK_PRIO: 19
+    LORAAPI_TASK_PRIO: 12
+    LORAWAN_TASK_PRIO: 10
+    LORAWAN_API_TASK_PRIO: 11
+    WATCHDOG_TASK_PRIO: 9

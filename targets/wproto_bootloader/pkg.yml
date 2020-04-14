@@ -1,0 +1,7 @@
+pkg.name: targets/wproto_bootloader
+pkg.type: target
+pkg.description: wProto based bootloader target
+pkg.author: 
+pkg.homepage: 
+
+pkg.cflags: -DREGION_EU868

@@ -1,0 +1,3 @@
+target.app: "@mcuboot/boot/mynewt"
+target.bsp: "@mynewt-wproto-bsp/w_proto"
+target.build_profile: optimized

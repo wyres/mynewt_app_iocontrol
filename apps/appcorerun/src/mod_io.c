@@ -20,6 +20,7 @@
 #include "wyres-generic/wutils.h"
 #include "wyres-generic/timemgr.h"
 #include "wyres-generic/ledmgr.h"
+#include "wyres-generic/gpiomgr.h"
 #include "wyres-generic/rebootmgr.h"
 #include "wyres-generic/movementmgr.h"
 #include "wyres-generic/sensormgr.h"
@@ -30,93 +31,74 @@
 // Use the PTI module id, as won't have both at same time
 #define MY_MOD_ID   (APP_MOD_PTI)
 
-#define USER_BUTTON  ((int8_t)MYNEWT_VAL(IO_1))
-#define DOOR_CONTACT  ((int8_t)MYNEWT_VAL(IO_2))
+typedef enum { IO_DIN=0, IO_DOUT, IO_BUTTON, IO_STATE, IO_AIN, IO_PWMOUT } IO_TYPE;
 
-#define DOOR_OPEN (0)
-#define DOOR_CLOSED (1)
+// Number of managed IOs related to the syscfg defines being 0-7 : don't change it...
+#define NB_IOS  (8)
 
-// define our specific ul tags that only the marmottes can deocde
-#define UL_TAG_CAGE_STATE (APP_CORE_UL_APP_SPECIFIC_START)
+// define our specific ul tags that only our app needs to decode
+#define UL_APP_IO_STATE (APP_CORE_UL_APP_SPECIFIC_START)
+#define DL_APP_IO_SET (APP_CORE_DL_APP_SPECIFIC_START)
 
 // COntext data
 static struct appctx {
-    uint32_t lastButtonReleaseTS;
-    uint32_t lastDoorOpenedTS;
-    uint32_t lastDoorClosedTS;
-    uint8_t ackId;
-    bool unackedAlert;
-    bool test;
+    struct mio {
+        int8_t gpio;        // if not -1, then active
+        const char* name;
+        IO_TYPE type;
+        GPIO_IDLE_TYPE pull;
+        uint8_t valueDL;
+        uint8_t valueUL;
+    } ios[NB_IOS];
 } _ctx;
 
+static void defineIO(int ioid, int gpio, const char* name, IO_TYPE t, GPIO_IDLE_TYPE pull, uint8_t initialValue);
+static void initIOs();
+static void deinitIOs();
+static void readIOs();
+static uint8_t readIO(int ioid);
+static void writeIO(int ioid, uint8_t v);
+static void iosetAction(uint8_t* v, uint8_t l);
 static void buttonChangeCB(void* ctx, SR_BUTTON_STATE_t currentState, SR_BUTTON_PRESS_TYPE_t currentPressType);
-static void doorChangeCB(void* ctx, SR_BUTTON_STATE_t currentState, SR_BUTTON_PRESS_TYPE_t currentPressType);
-static void alertAcked(uint8_t* v, uint8_t l);
-// Map the button state to a door state (as door is closed when hall effect has NO magnet -> which is a 'released' state for the button api)
-static uint8_t mapDoorState(uint8_t buttonState) {
-    if (buttonState==SR_BUTTON_RELEASED) {
-        return DOOR_CLOSED;
-    }
-    return DOOR_OPEN;
-}
+static void stateInputChangeCB(void* ctx, SR_BUTTON_STATE_t currentState, SR_BUTTON_PRESS_TYPE_t currentPressType);
+
 // My api functions
 static uint32_t start() {
-    if (_ctx.test) {
-        // Long light of correct led depending on door open or closed
-        if (mapDoorState(SRMgr_getButton(DOOR_CONTACT))==DOOR_OPEN) {
-            ledStart(LED_1, FLASH_ON, 10);
-        } else {
-            ledStart(LED_2, FLASH_ON, 10);
-        }
-        log_debug("MP:test cage check : 10s");
-        return 10*1000;      // to let user see leds
-    }
-    log_debug("MP:start cage check : 1s");
+    log_debug("MIO:start IO check : 1s");
     return 1*1000;
 }
 
 static void stop() {
-    log_debug("MP:done");
+    log_debug("MIO:done");
 }
 static void off() {
     // ensure sensors are low power mode
+    deinitIOs();
 }
 static void deepsleep() {
     // ensure sensors are off
+    deinitIOs();
 }
 static bool getData(APP_CORE_UL_t* ul) {
-    log_info("MP: UL cage door[%s] test[%s] unacked alert[%s]", 
-            (mapDoorState(SRMgr_getButton(DOOR_CONTACT))==DOOR_OPEN?"OPEN":"CLOSED"),
-            (_ctx.test?"YES":"NO"),
-            (_ctx.unackedAlert?"YES":"NO"));
+    log_info("MIO: UL ");
+    // Read values
+    readIOs();
     // write to UL TS and current states
     /* structure equiv:
-     * uint32_t lastOpenedTS;
-     * uint32_t lastClosedTS;
-     * uint8_t isDoorClosed;      // 0 = no, 1=yes
-     * uint8_t unackedAlert;
-     * uint8_t test
+     * uint8_t[8] io analog read 1 byte per IO. 0 if its an output
      * uint8_t device state : 0=deactivated, 1=activated
      */
-    uint8_t ds[12];
-    Util_writeLE_uint32_t(ds, 0, _ctx.lastDoorOpenedTS);
-    Util_writeLE_uint32_t(ds, 4, _ctx.lastDoorClosedTS);
-    ds[8] = mapDoorState(SRMgr_getButton(DOOR_CONTACT));
-    ds[9] = (_ctx.unackedAlert?1:0);
-    ds[10] = (_ctx.test?1:0);
-    ds[11] = (AppCore_isDeviceActive()?1:0);
-    app_core_msg_ul_addTLV(ul, UL_TAG_CAGE_STATE, 12, &ds[0]);
-    if (_ctx.unackedAlert || _ctx.test) {
-        // request ack from app, giving id of this request (1 byte)
-        app_core_msg_ul_addTLV(ul, APP_CORE_UL_APP_ACK_REQ, 1, &_ctx.ackId);
+    uint8_t ds[NB_IOS+1];
+    for(int i=0;i<NB_IOS;i++) {
+        ds[i] = _ctx.ios[i].valueUL;
+        _ctx.ios[i].valueUL = 0;      // reset value to ensure we get latest button press types
     }
+    ds[NB_IOS] = (AppCore_isDeviceActive()?1:0);
+    app_core_msg_ul_addTLV(ul, UL_APP_IO_STATE, 12, &ds[0]);
     return true;       // all critical!
 }
 static void tick() {
-    // Check if 'unacked alert' or 'test' flag is set, if so force UL now for this module
-    if (_ctx.unackedAlert || _ctx.test) {
-        AppCore_forceUL(MY_MOD_ID);
-    }
+    // NOOP currently
 }
 
 static APP_CORE_API_t _api = {
@@ -128,87 +110,184 @@ static APP_CORE_API_t _api = {
     .ticCB = &tick,    
 };
 // Initialise module
-void mod_cage_init(void) {
+void mod_io_init(void) {
+    MYNEWT_VAL(IO_0);
+    MYNEWT_VAL(IO_1);
+    MYNEWT_VAL(IO_2);
+    MYNEWT_VAL(IO_3);
+    MYNEWT_VAL(IO_4);
+    MYNEWT_VAL(IO_5);
+    MYNEWT_VAL(IO_6);
+    MYNEWT_VAL(IO_7);
     // hook app-core for env data
-    AppCore_registerModule("CAGE", MY_MOD_ID, &_api, EXEC_PARALLEL);
-    AppCore_registerAction(APP_CORE_DL_APP_ACK, alertAcked);
-
-    if (USER_BUTTON>=0) {
-        // add cb for button press, no context required
-        SRMgr_registerButtonCB(USER_BUTTON, buttonChangeCB, NULL);
-    }
-    if (DOOR_CONTACT>=0) {
-        // using extio as input irq
-        SRMgr_registerButtonCB(DOOR_CONTACT, doorChangeCB, NULL);
-    }
-    log_info("MP: cage operation initialised");
+    AppCore_registerModule("IO", MY_MOD_ID, &_api, EXEC_PARALLEL);
+    AppCore_registerAction(DL_APP_IO_SET, iosetAction);
+    initIOs();
+    log_info("MIO: io operation initialised");
 }
 
+
 // internals
-// DL action indicating backend got my critical UL
-static void alertAcked(uint8_t* v, uint8_t l) {
-    // clear flag saying alert (and test)
-    _ctx.unackedAlert = false;
-    _ctx.ackId++;       // Ready for next time
-    if (_ctx.test) {
-        _ctx.test = false;
-        // both LED on for 10s to show connection is good
-        ledStart(LED_1, FLASH_ON, 10);
-        ledStart(LED_2, FLASH_ON, 10);
+static void defineIO(int ioid, int gpio, const char* name, IO_TYPE t, GPIO_IDLE_TYPE pull, uint8_t initialValue) {
+    _ctx.ios[ioid].gpio = gpio;
+    _ctx.ios[ioid].name = name;
+    _ctx.ios[ioid].type = t;
+    _ctx.ios[ioid].pull = pull;
+    _ctx.ios[ioid].valueDL = initialValue;
+}
+static void initIOs() {
+    for(int i=0;i<NB_IOS;i++) {
+        if (_ctx.ios[i].gpio>=0) {
+            switch (_ctx.ios[i].type) {
+                case IO_DIN: {
+                    GPIO_define_in(_ctx.ios[i].name, _ctx.ios[i].gpio, _ctx.ios[i].pull, LP_DOZE, HIGH_Z);
+                    break;
+                }
+                case IO_AIN: {
+                    GPIO_define_adc(_ctx.ios[i].name, _ctx.ios[i].gpio, _ctx.ios[i].gpio, LP_DOZE, HIGH_Z);
+                    break;
+                }
+                case IO_BUTTON: {
+                    SRMgr_defineButton(_ctx.ios[i].gpio);
+                    // add cb for button press, context is id
+                    SRMgr_registerButtonCB(_ctx.ios[i].gpio, buttonChangeCB, (void*)i);
+                    break;
+                }
+                case IO_STATE: {
+                    SRMgr_defineButton(_ctx.ios[i].gpio);
+                    // add cb for change of state, context is id
+                    SRMgr_registerButtonCB(_ctx.ios[i].gpio, stateInputChangeCB, (void*)i);
+                    break;
+                }
+                case IO_DOUT: {
+                    // config
+                    GPIO_define_out(_ctx.ios[i].name, _ctx.ios[i].gpio, _ctx.ios[i].valueDL, LP_DOZE, HIGH_Z);
+                    break;
+                }
+                case IO_PWMOUT: {
+//TBD                    GPIO_define_pwm(_ctx.ios[i].name, _ctx.ios[i].gpio, _ctx.ios[i].valueDL, LP_DOZE, HIGH_Z);
+                    break;
+                }
+                default: {
+                    // ignore
+                    break;
+                }
+            }
+        }
     }
-    log_info("UL alert ackd!");
+}
+static void deinitIOs() {
+    // Not required, GPIO mgr takes care of low powering
+}
+
+// Read an io
+static uint8_t readIO(int ioid) {
+    if (ioid>=0 && ioid<NB_IOS) {
+        if (_ctx.ios[ioid].gpio>=0) {
+            switch (_ctx.ios[ioid].type) {
+                case IO_DIN: {
+                    _ctx.ios[ioid].valueUL = (uint8_t)GPIO_read(_ctx.ios[ioid].gpio);
+                    break;
+                }
+                case IO_AIN: {
+                    _ctx.ios[ioid].valueUL = (uint8_t)GPIO_readADC(_ctx.ios[ioid].gpio);
+                    break;
+                }
+                // Button dealt with by callback, its value is the last press type (not the press/release 1/0 value)
+                default: {
+                    // ignore
+                    break;
+                }
+            }
+        }
+        return _ctx.ios[ioid].valueUL;
+    }
+    return 0;
+}
+// write an io
+static void writeIO(int ioid, uint8_t val) {
+    if (ioid>=0 && ioid<NB_IOS) {
+        if (_ctx.ios[ioid].gpio>=0) {
+            switch (_ctx.ios[ioid].type) {
+                case IO_DOUT: {
+                    GPIO_write(_ctx.ios[ioid].gpio, _ctx.ios[ioid].valueDL);
+                    break;
+                }
+                case IO_PWMOUT: {
+    // TODO                GPIO_writePWM(_ctx.ios[ioid].gpio, _ctx.ios[ioid].valueDL);
+                    break;
+                }
+                default: {
+                    // ignore
+                    break;
+                }
+            }
+        }
+    }    
+}
+
+// Read all input type IOs
+static void readIOs() {
+    for(int i=0;i<NB_IOS;i++) {
+        readIO(i);      // deals with invalid or output cases by ignoring them
+    }
+}
+
+// DL action setting output ios
+static void iosetAction(uint8_t* v, uint8_t l) {
+    // Check got the right number of bytes
+    if (l==NB_IOS) {
+        for(int i=0;i<NB_IOS; i++) {
+            if (_ctx.ios[i].type==IO_DOUT || _ctx.ios[i].type==IO_PWMOUT) {
+                _ctx.ios[i].valueDL = v[i];
+                writeIO(i, v[i]);
+                log_info("DL io %d on gpio %d set to %d", i, _ctx.ios[i].gpio, v[i]);
+            }
+        }
+        log_info("DL ios set");
+    } else {
+        log_warn("DL ios not set as wrong length %d", l);
+    }
 }
 
 // callback each time button changes state
 static void buttonChangeCB(void* ctx, SR_BUTTON_STATE_t currentState, SR_BUTTON_PRESS_TYPE_t currentPressType) {
     if (currentState==SR_BUTTON_RELEASED) {
-        log_info("MP:button released, duration %d ms, press type:%d", 
-            (SRMgr_getLastButtonReleaseTS(USER_BUTTON)-SRMgr_getLastButtonPressTS(USER_BUTTON)),
-            SRMgr_getLastButtonPressType(USER_BUTTON));
-        // If short or medium press, then connection test (only if device is active)
-        if (currentPressType==SR_BUTTON_SHORT || currentPressType==SR_BUTTON_MED) {
-            if (AppCore_isDeviceActive()) {
-                _ctx.test = true;
-                _ctx.lastButtonReleaseTS = SRMgr_getLastButtonReleaseTS(USER_BUTTON);
-                log_info("MP:doing cnx test");
-                // ask for immediate UL with only us consulted
-                AppCore_forceUL(MY_MOD_ID);
-            }
-        } else {
-            // long presses mean change active state of device
-            if (AppCore_isDeviceActive()) {
-                log_info("MP:device deactivated");
-                AppCore_setDeviceState(false);      // goto inactive
+        if (AppCore_isDeviceActive()) {
+            // flag the button that caused the UL
+            int bid = (int)ctx;
+            if (bid>=0 && bid<NB_IOS) {
+                log_info("MIO:button %d released, duration %d ms, press type:%d", bid, 
+                    (SRMgr_getLastButtonReleaseTS(_ctx.ios[bid].gpio)-SRMgr_getLastButtonPressTS(_ctx.ios[bid].gpio)),
+                    SRMgr_getLastButtonPressType(_ctx.ios[bid].gpio));
+                _ctx.ios[bid].valueUL = currentPressType;
                 // ask for immediate UL with only us consulted
                 AppCore_forceUL(MY_MOD_ID);
             } else {
-                log_info("MP:device activated");
-                AppCore_setDeviceState(true);      // goto active
-                // ask for immediate UL with only us consulted
-                AppCore_forceUL(MY_MOD_ID);
+                log_warn("MIO:button release but bad id %d", ctx);
             }
+        } else {
+            log_info("MIO:button release ignore not active");
         }
     } else {
-        log_info("MP:button pressed");
+        log_info("MIO:button pressed");
     }
 }
-// callback each time extio changes state
-static void doorChangeCB(void* ctx, SR_BUTTON_STATE_t currentState, SR_BUTTON_PRESS_TYPE_t currentPressType) {
+
+// For an input where we want to signal each change of state 
+static void stateInputChangeCB(void* ctx, SR_BUTTON_STATE_t currentState, SR_BUTTON_PRESS_TYPE_t currentPressType) {
     if (AppCore_isDeviceActive()) {
-        if (mapDoorState(currentState)==DOOR_OPEN) {
-            log_info("MP:door opened");
-            _ctx.lastDoorOpenedTS = TMMgr_getRelTimeMS();
-            _ctx.unackedAlert = true;
+        // find input that caused the state change
+        int bid = (int)ctx;
+        if (bid>=0 && bid<NB_IOS) {
+            log_info("MIO:state input %d changed to %d", bid, currentState);
+            _ctx.ios[bid].valueUL = currentState;
             // ask for immediate UL with only us consulted
             AppCore_forceUL(MY_MOD_ID);
         } else {
-            log_info("MP:door closed");
-            _ctx.lastDoorClosedTS = TMMgr_getRelTimeMS();
-            _ctx.unackedAlert = true;
-            // ask for immediate UL with only us consulted
-            AppCore_forceUL(MY_MOD_ID);
+            log_warn("MIO:input state change but bad id %d", ctx);
         }
     } else {
-        log_info("MP:door change but device inactive");
+        log_info("MIO:input state change ignore not active");
     }
 }

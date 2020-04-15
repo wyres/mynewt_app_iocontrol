@@ -22,37 +22,30 @@ syscfg.defs:
         value: 0
 
     # mod-io uses 'generic' io names, remapped to physical GPIOs in target
-    IO_1:
-        description: "GPIO 1"
-        value: -1
-
-    IO_2:
-        description: "GPIO 2"
-        value: -1
-            
-    IO_3:
-        description: "GPIO 3"
-        value: -1
-            
-    IO_4:
-        description: "GPIO 4"
-        value: -1
-            
-    IO_5:
-        description: "GPIO 5"
-        value: -1
-            
-    IO_6:
-        description: "GPIO 6"
-        value: -1
-            
-    IO_7:
-        description: "GPIO 7"
-        value: -1
-            
-    IO_8:
-        description: "GPIO 8"
-        value: -1
+    IO_0: 
+        description: "define io slot 0"
+        value: 'defineIO(0, -1, "unused", IO_DIN, PULL_UP, 0)'
+    IO_1: 
+        description: "define io slot 1"
+        value: 'defineIO(1, -1, "unused", IO_DIN, PULL_UP, 0)'
+    IO_2: 
+        description: "define io slot 2"
+        value: 'defineIO(2, -1, "unused", IO_DIN, PULL_UP, 0)'
+    IO_3: 
+        description: "define io slot 3"
+        value: 'defineIO(3, -1, "unused", IO_DIN, PULL_UP, 0)'
+    IO_4: 
+        description: "define io slot 4"
+        value: 'defineIO(4, -1, "unused", IO_DIN, PULL_UP, 0)'
+    IO_5: 
+        description: "define io slot 5"
+        value: 'defineIO(5, -1, "unused", IO_DIN, PULL_UP, 0)'
+    IO_6: 
+        description: "define io slot 6"
+        value: 'defineIO(6, -1, "unused", IO_DIN, PULL_UP, 0)'
+    IO_7: 
+        description: "define io slot 7"
+        value: 'defineIO(7, -1, "unused", IO_DIN, PULL_UP, 0)'
             
 
 #set application level config here (rather than in every target)

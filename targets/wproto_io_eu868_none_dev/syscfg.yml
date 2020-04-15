@@ -1,11 +1,11 @@
 syscfg.vals: 
     # mod-io expects us to map its 'ioId' names to pysical GPIO ports
-    IO_1     : CN4_7       # PB12
-    IO_2     : CN4_3       # PB14
-    # etc
+    IO_0: 'defineIO(0, 30, "reset hall", IO_STATE, PULL_UP, 0)'
+    IO_1: 'defineIO(1, 28, "toggle relay button", IO_BUTTON, PULL_UP, 0)'
+    IO_2: 'defineIO(2, 29, "relay1", IO_DOUT, PULL_UP, 0)'
 
-    BSP_POWER_SETUP: 0
-    OS_TICKLESS_RTC: 0
+#    BSP_POWER_SETUP: 0
+#    OS_TICKLESS_RTC: 0
 
     # dev build
     BUILD_RELEASE : 0

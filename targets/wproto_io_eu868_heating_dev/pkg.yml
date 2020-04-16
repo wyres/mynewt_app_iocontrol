@@ -1,0 +1,15 @@
+pkg.name: targets/wproto_io_eu868_heating_dev
+pkg.type: target
+pkg.description: WProto based target for EU868 with external control for heating
+pkg.author: 
+pkg.homepage: 
+
+
+pkg.deps:
+    - "@app-generic/app-core"
+    - "@app-generic/mod-env"
+
+pkg.cflags: -DREGION_EU868
+
+pkg.init:
+    mod_io_init: 995

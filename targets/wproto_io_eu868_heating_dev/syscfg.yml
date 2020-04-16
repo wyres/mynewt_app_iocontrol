@@ -1,7 +1,9 @@
 syscfg.vals: 
     # mod-io expects us to map its 'ioId' names to pysical GPIO ports. Note that can use bsp defines to name the gpios.
-    # no cabling for this target, just define the speaker
-    IO_0: 'defineIO(0, CN4_11, "speaker", IO_PWMOUT, PULL_UP, 0)'
+    # this target has 1 output relay to control heating, 2 input buttons, one for tamper detection, one for local toggling of the relay
+    IO_0: 'defineIO(0, CN4_3, "tamper hall", IO_STATE, PULL_UP, 0)'
+    IO_1: 'defineIO(1, CN4_5, "toggle relay1 button", IO_BUTTON_LINKED, PULL_UP, 2)'
+    IO_2: 'defineIO(2, CN4_7, "relay", IO_DOUT, PULL_UP, 1)'
 
 #    BSP_POWER_SETUP: 0
 #    OS_TICKLESS_RTC: 0

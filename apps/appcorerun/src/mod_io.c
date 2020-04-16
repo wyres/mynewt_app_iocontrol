@@ -31,7 +31,8 @@
 // Use the PTI module id, as won't have both at same time
 #define MY_MOD_ID   (APP_MOD_PTI)
 
-typedef enum { IO_DIN=0, IO_DOUT, IO_BUTTON, IO_STATE, IO_AIN, IO_PWMOUT } IO_TYPE;
+// IO setup types. Note IO_OUTPUT_TYPE : all input types should be before this guy, all output types after
+typedef enum { IO_DIN=0, IO_BUTTON, IO_BUTTON_LINKED, IO_STATE, IO_AIN, IO_OUTPUT_TYPE, IO_PWMOUT, IO_DOUT } IO_TYPE;
 
 // Number of managed IOs related to the syscfg defines being 0-7 : don't change it...
 #define NB_IOS  (8)
@@ -49,6 +50,7 @@ static struct appctx {
         GPIO_IDLE_TYPE pull;
         uint8_t valueDL;
         uint8_t valueUL;
+        int linkedDOUTioid;
     } ios[NB_IOS];
 } _ctx;
 
@@ -61,6 +63,7 @@ static void writeIO(int ioid, uint8_t v);
 static void iosetAction(uint8_t* v, uint8_t l);
 static void buttonChangeCB(void* ctx, SR_BUTTON_STATE_t currentState, SR_BUTTON_PRESS_TYPE_t currentPressType);
 static void stateInputChangeCB(void* ctx, SR_BUTTON_STATE_t currentState, SR_BUTTON_PRESS_TYPE_t currentPressType);
+static bool isOut(IO_TYPE t);
 
 // My api functions
 static uint32_t start() {
@@ -90,7 +93,9 @@ static bool getData(APP_CORE_UL_t* ul) {
      */
     uint8_t ds[NB_IOS+1];
     for(int i=0;i<NB_IOS;i++) {
-        ds[i] = _ctx.ios[i].valueUL;
+        log_info("I%d[%s][%d]:%d:%d", i, _ctx.ios[i].name, _ctx.ios[i].gpio, _ctx.ios[i].type, isOut(_ctx.ios[i].type)?_ctx.ios[i].valueDL:_ctx.ios[i].valueUL);
+        // send up value : UL value for input types, DL value for output types
+        ds[i] = isOut(_ctx.ios[i].type)?_ctx.ios[i].valueDL:_ctx.ios[i].valueUL;
         _ctx.ios[i].valueUL = 0;      // reset value to ensure we get latest button press types
     }
     ds[NB_IOS] = (AppCore_isDeviceActive()?1:0);
@@ -111,6 +116,9 @@ static APP_CORE_API_t _api = {
 };
 // Initialise module
 void mod_io_init(void) {
+    for(int i=0;i<NB_IOS;i++) {
+        _ctx.ios[i].gpio = -1;       // ensure disabled by default
+    }
     MYNEWT_VAL(IO_0);
     MYNEWT_VAL(IO_1);
     MYNEWT_VAL(IO_2);
@@ -128,43 +136,72 @@ void mod_io_init(void) {
 
 
 // internals
+static bool isOut(IO_TYPE t) {
+    return (t>=IO_OUTPUT_TYPE);
+}
+
 static void defineIO(int ioid, int gpio, const char* name, IO_TYPE t, GPIO_IDLE_TYPE pull, uint8_t initialValue) {
+    assert(ioid>=0 && ioid<NB_IOS);
+    assert(_ctx.ios[ioid].gpio==-1);        // must not define twice
     _ctx.ios[ioid].gpio = gpio;
     _ctx.ios[ioid].name = name;
     _ctx.ios[ioid].type = t;
     _ctx.ios[ioid].pull = pull;
-    _ctx.ios[ioid].valueDL = initialValue;
+    // If its a button with a link to another DOUT, then initialValue is the linked IO
+    if (t==IO_BUTTON_LINKED) {
+        int doutIoid = initialValue;
+        // Check linked IO is valid, configured as an output
+        assert(doutIoid>=0 && doutIoid<NB_IOS);
+        // Can't check if linked guy is valid as might be initialised later on
+//        assert(_ctx.ios[doutIoid].gpio!=-1);
+//        assert(isOut(_ctx.ios[doutIoid].type));
+        // and link it
+        _ctx.ios[ioid].linkedDOUTioid = doutIoid;
+        _ctx.ios[ioid].valueDL = 0;
+    } else {
+        _ctx.ios[ioid].valueDL = initialValue;
+        _ctx.ios[ioid].linkedDOUTioid = -1;
+    }
 }
+
 static void initIOs() {
     for(int i=0;i<NB_IOS;i++) {
         if (_ctx.ios[i].gpio>=0) {
             switch (_ctx.ios[i].type) {
                 case IO_DIN: {
+                    log_info("MIO:IO%d[%s] DIN[%d]", i, _ctx.ios[i].name, _ctx.ios[i].gpio);
                     GPIO_define_in(_ctx.ios[i].name, _ctx.ios[i].gpio, _ctx.ios[i].pull, LP_DOZE, HIGH_Z);
                     break;
                 }
                 case IO_AIN: {
+                    log_info("MIO:IO%d[%s] AIN[%d]", i, _ctx.ios[i].name, _ctx.ios[i].gpio);
                     GPIO_define_adc(_ctx.ios[i].name, _ctx.ios[i].gpio, _ctx.ios[i].gpio, LP_DOZE, HIGH_Z);
                     break;
                 }
-                case IO_BUTTON: {
+                case IO_BUTTON: 
+                case IO_BUTTON_LINKED:          // same button setup for both
+                {
+                    log_info("MIO:IO%d[%s] BUTTON[%d]", i, _ctx.ios[i].name, _ctx.ios[i].gpio);
                     SRMgr_defineButton(_ctx.ios[i].gpio);
                     // add cb for button press, context is id
                     SRMgr_registerButtonCB(_ctx.ios[i].gpio, buttonChangeCB, (void*)i);
                     break;
                 }
                 case IO_STATE: {
+                    log_info("MIO:IO%d[%s] STATE[%d]", i, _ctx.ios[i].name, _ctx.ios[i].gpio);
                     SRMgr_defineButton(_ctx.ios[i].gpio);
                     // add cb for change of state, context is id
                     SRMgr_registerButtonCB(_ctx.ios[i].gpio, stateInputChangeCB, (void*)i);
                     break;
                 }
                 case IO_DOUT: {
+                    log_info("MIO:IO%d[%s] DOUT[%d]=%d", i, _ctx.ios[i].name, _ctx.ios[i].gpio, _ctx.ios[i].valueDL);
                     // config
                     GPIO_define_out(_ctx.ios[i].name, _ctx.ios[i].gpio, _ctx.ios[i].valueDL, LP_DOZE, HIGH_Z);
                     break;
                 }
                 case IO_PWMOUT: {
+                    log_info("MIO:IO%d[%s] PWMOUT[%d]=%d", i, _ctx.ios[i].name, _ctx.ios[i].gpio, _ctx.ios[i].valueDL);
 //TBD                    GPIO_define_pwm(_ctx.ios[i].name, _ctx.ios[i].gpio, _ctx.ios[i].valueDL, LP_DOZE, HIGH_Z);
                     break;
                 }
@@ -238,7 +275,7 @@ static void iosetAction(uint8_t* v, uint8_t l) {
     // Check got the right number of bytes
     if (l==NB_IOS) {
         for(int i=0;i<NB_IOS; i++) {
-            if (_ctx.ios[i].type==IO_DOUT || _ctx.ios[i].type==IO_PWMOUT) {
+            if (isOut(_ctx.ios[i].type)) {
                 _ctx.ios[i].valueDL = v[i];
                 writeIO(i, v[i]);
                 log_info("DL io %d on gpio %d set to %d", i, _ctx.ios[i].gpio, v[i]);
@@ -257,12 +294,20 @@ static void buttonChangeCB(void* ctx, SR_BUTTON_STATE_t currentState, SR_BUTTON_
             // flag the button that caused the UL
             int bid = (int)ctx;
             if (bid>=0 && bid<NB_IOS) {
-                log_info("MIO:button %d released, duration %d ms, press type:%d", bid, 
+                log_info("MIO:button [%s] released, duration %d ms, press type:%d", _ctx.ios[bid].name, 
                     (SRMgr_getLastButtonReleaseTS(_ctx.ios[bid].gpio)-SRMgr_getLastButtonPressTS(_ctx.ios[bid].gpio)),
                     SRMgr_getLastButtonPressType(_ctx.ios[bid].gpio));
                 _ctx.ios[bid].valueUL = currentPressType;
                 // ask for immediate UL with only us consulted
                 AppCore_forceUL(MY_MOD_ID);
+                // Check if this button is linked to a DOUT for local toggle
+                if (_ctx.ios[bid].type==IO_BUTTON_LINKED && _ctx.ios[bid].linkedDOUTioid>=0) {
+                    int doutId = _ctx.ios[bid].linkedDOUTioid;
+                    // Toggle output value (downlink set value)
+                    _ctx.ios[doutId].valueDL = !(_ctx.ios[doutId].valueDL);
+                    writeIO(doutId, _ctx.ios[doutId].valueDL);
+                    log_info("MIO:button %s toggles linked dout[%s] to %d", _ctx.ios[bid].name,_ctx.ios[doutId].name, _ctx.ios[doutId].valueDL);
+                }
             } else {
                 log_warn("MIO:button release but bad id %d", ctx);
             }

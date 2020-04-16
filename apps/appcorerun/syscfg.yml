@@ -21,7 +21,21 @@ syscfg.defs:
         description: "enable unittest execution in main"
         value: 0
 
-    # mod-io uses 'generic' io names, remapped to physical GPIOs in target
+    # mod-io : define for each of the 8 'channels' its name, physical GPIO, type, pull up/down (for inputs) and initial value (for outputs)
+    # Parameters: 
+    #   - channel id being defined (0-7)
+    #   - gpio pin (add 16 for group B, eg PB10 will be 26)
+    #   - name (used for debug)
+    #   - type :    IO_DIN (digital in), 
+    #               IO_DOUT (digital out), 
+    #               IO_AIN (ADC input), 
+    #               IO_BUTTON (button type input with debounce and press length as value, UL sent when released), 
+    #               IO_BUTTON_LINKED (button type input with debounce and press length as value, UL sent when released 
+    #                                _AND_ locally toggles the associated DOUT io passed in value), 
+    #               IO_STATE (like button but value is 0/1, UL sent on each state change)
+    #               IO_PWMOUT (PWM output at frequency between 0.1kHz and 25.5kHz (value /10 * 1000Hz))
+    #   - pull type (for IO_DIO, IO_BUTTON, IO_STATE) : HIGH_Z, PULL_UP, PULL_DOWN
+    #   - initial value (for output types), or linked DOUT IO id for BUTTON_LINKED type
     IO_0: 
         description: "define io slot 0"
         value: 'defineIO(0, -1, "unused", IO_DIN, PULL_UP, 0)'

@@ -20,6 +20,7 @@
 #include "wyres-generic/wutils.h"
 #include "wyres-generic/timemgr.h"
 #include "wyres-generic/ledmgr.h"
+#include "wyres-generic/pwmplayer.h"
 #include "wyres-generic/gpiomgr.h"
 #include "wyres-generic/rebootmgr.h"
 #include "wyres-generic/movementmgr.h"
@@ -59,7 +60,7 @@ static void initIOs();
 static void deinitIOs();
 static void readIOs();
 static uint8_t readIO(int ioid);
-static void writeIO(int ioid, uint8_t v);
+static void writeIO(int ioid);
 static void iosetAction(uint8_t* v, uint8_t l);
 static void buttonChangeCB(void* ctx, SR_BUTTON_STATE_t currentState, SR_BUTTON_PRESS_TYPE_t currentPressType);
 static void stateInputChangeCB(void* ctx, SR_BUTTON_STATE_t currentState, SR_BUTTON_PRESS_TYPE_t currentPressType);
@@ -67,7 +68,7 @@ static bool isOut(IO_TYPE t);
 
 // My api functions
 static uint32_t start() {
-    log_debug("MIO:start IO check : 1s");
+    log_debug("MIO:start:1s");
     return 1*1000;
 }
 
@@ -132,6 +133,7 @@ void mod_io_init(void) {
     AppCore_registerAction(DL_APP_IO_SET, iosetAction);
     initIOs();
     log_info("MIO: io operation initialised");
+
 }
 
 
@@ -202,7 +204,10 @@ static void initIOs() {
                 }
                 case IO_PWMOUT: {
                     log_info("MIO:IO%d[%s] PWMOUT[%d]=%d", i, _ctx.ios[i].name, _ctx.ios[i].gpio, _ctx.ios[i].valueDL);
-//TBD                    GPIO_define_pwm(_ctx.ios[i].name, _ctx.ios[i].gpio, _ctx.ios[i].valueDL, LP_DOZE, HIGH_Z);
+                    // using timer 2 TODO how to find out? using initial value as hack
+                    PWM_define(_ctx.ios[i].name, _ctx.ios[i].gpio, _ctx.ios[i].valueDL);
+                    // Play a little tune to say hello
+                    PWM_play(_ctx.ios[0].gpio, "b_cc-ca_cA_mE_c", 90);
                     break;
                 }
                 default: {
@@ -242,7 +247,7 @@ static uint8_t readIO(int ioid) {
     return 0;
 }
 // write an io
-static void writeIO(int ioid, uint8_t val) {
+static void writeIO(int ioid) {
     if (ioid>=0 && ioid<NB_IOS) {
         if (_ctx.ios[ioid].gpio>=0) {
             switch (_ctx.ios[ioid].type) {
@@ -251,7 +256,8 @@ static void writeIO(int ioid, uint8_t val) {
                     break;
                 }
                 case IO_PWMOUT: {
-    // TODO                GPIO_writePWM(_ctx.ios[ioid].gpio, _ctx.ios[ioid].valueDL);
+                    // value is bits 7-5 = duration in seconds-1, bits 4-0 = frequency in 1kHz
+                    PWM_addPWM(_ctx.ios[ioid].gpio, (_ctx.ios[ioid].valueDL & 0x1F)*100, 50, (((_ctx.ios[ioid].valueDL & 0xE0)>>5)+1)*1000);
                     break;
                 }
                 default: {
@@ -277,7 +283,7 @@ static void iosetAction(uint8_t* v, uint8_t l) {
         for(int i=0;i<NB_IOS; i++) {
             if (isOut(_ctx.ios[i].type)) {
                 _ctx.ios[i].valueDL = v[i];
-                writeIO(i, v[i]);
+                writeIO(i);
                 log_info("DL io %d on gpio %d set to %d", i, _ctx.ios[i].gpio, v[i]);
             }
         }
@@ -305,7 +311,7 @@ static void buttonChangeCB(void* ctx, SR_BUTTON_STATE_t currentState, SR_BUTTON_
                     int doutId = _ctx.ios[bid].linkedDOUTioid;
                     // Toggle output value (downlink set value)
                     _ctx.ios[doutId].valueDL = !(_ctx.ios[doutId].valueDL);
-                    writeIO(doutId, _ctx.ios[doutId].valueDL);
+                    writeIO(doutId);
                     log_info("MIO:button %s toggles linked dout[%s] to %d", _ctx.ios[bid].name,_ctx.ios[doutId].name, _ctx.ios[doutId].valueDL);
                 }
             } else {

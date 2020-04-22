@@ -6,6 +6,9 @@ syscfg.vals:
 #    BSP_POWER_SETUP: 0
 #    OS_TICKLESS_RTC: 0
 
+    #enable pwm tone player
+    MAX_PWMS: 1
+    
     # dev build
     BUILD_RELEASE : 0
 

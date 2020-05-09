@@ -1,0 +1,14 @@
+mfg.name: wproto_io_eu868_heating_dev
+mfg.bootloader: wproto_bootloader       #"targets/wproto_bootloader"
+
+mfg.targets:
+    - wproto_bootloader:
+      name: "targets/wproto_bootloader"
+      offset: 0x0
+      area: FLASH_AREA_MFG
+    - wproto_io_eu868_heating_dev:
+      name: "targets/wproto_io_eu868_heating_dev"
+      offset: 0x0000c000
+      area: FLASH_AREA_MFG
+mfg.meta:
+    area: FLASH_AREA_MFG

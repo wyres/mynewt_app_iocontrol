@@ -25,6 +25,8 @@ repos
 .gdb_cmds
 *~
 *.zip
+*.hex
+*.elf
 .cproject
 .project
 .openocd_cmds

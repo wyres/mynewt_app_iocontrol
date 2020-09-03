@@ -33,3 +33,5 @@ pkg.deps:
 # using baselibc in this app
 pkg.lflags: -nostdlib
 
+pkg.init:
+    mod_io_init : 995

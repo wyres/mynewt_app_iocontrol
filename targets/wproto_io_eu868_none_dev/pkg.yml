@@ -10,6 +10,3 @@ pkg.deps:
     - "@app-generic/mod-env"
 
 pkg.cflags: -DREGION_EU868
-
-pkg.init:
-    mod_io_init: 995

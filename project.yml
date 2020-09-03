@@ -49,9 +49,11 @@ repository.mynewt-wproto-bsp:
     url: 'https://github.com/wyres/mynewt-wproto-bsp.git'
 
 repository.lorawan:
-    type: git
+    type: github
     vers: 0.0.0
-    url: 'https://github.com/ygaklk/LoRaMac-node.git'
+    user: ygaklk
+    repo: lorawan-api
+#    url: 'https://github.com/ygaklk/LoRaMac-node.git'
 
 repository.generic:
     type: git

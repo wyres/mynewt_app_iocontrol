@@ -31,3 +31,4 @@ repos
 .project
 .openocd_cmds
 openocd.log
+/elfs

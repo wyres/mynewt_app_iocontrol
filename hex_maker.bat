@@ -5,8 +5,8 @@ set TARGET=%1
 if "%TARGET%"=="boot" (
 :: must have done a newt build on the bootloaders already
     echo "Building bootloader"
-    newt build wbasev2_bootloader || EXIT /B 1
-:: newt build wbasev2_bootloader not yet done
+    newt build wproto_bootloader || EXIT /B 1
+::    newt build wbasev2_bootloader || EXIT /B 1
     exit /B 0
 )
 if "%TARGET%"=="version" (
@@ -20,7 +20,6 @@ newt build %TARGET% || EXIT /B 1
 newt create-image -2 %TARGET% 0.0.0.1 || EXIT /B 1
 newt mfg create %TARGET% 0.0.0.1 || EXIT /B 1
 arm-none-eabi-objcopy -I binary -O ihex --change-addresses=0x08000000 %BASE%\bin\mfgs\%TARGET%\mfgimg.bin %BASE%\built\%TARGET%.hex || EXIT /B 1
-
 :: copy the results to the built dir to be able to find and identify them easier
 cp %BASE%/bin/targets/%TARGET%/app/apps/appcorerun/appcorerun.elf %BASE%/built/%TARGET%.elf || EXIT /B 1
 

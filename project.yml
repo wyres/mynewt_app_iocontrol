@@ -53,7 +53,7 @@ repository.lorawan:
     vers: 0.0.0
     user: ygaklk
     repo: lorawan-api
-#    url: 'https://github.com/ygaklk/LoRaMac-node.git'
+    url: 'https://github.com/wyres/mynewt-lorawan.git'
 
 repository.generic:
     type: git

@@ -1,0 +1,12 @@
+pkg.name: targets/wbasev2_io_eu868_ipev_dev
+pkg.type: target
+pkg.description: WBasev2 based target for EU868 with external sensors on gpio for IPEV
+pkg.author: 
+pkg.homepage: 
+
+
+pkg.deps:
+    - "@app-generic/app-core"
+    - "@app-generic/mod-env"
+
+pkg.cflags: -DREGION_EU868

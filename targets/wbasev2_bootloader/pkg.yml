@@ -1,0 +1,7 @@
+pkg.name: targets/wbasev2_bootloader
+pkg.type: target
+pkg.description: WBase V2 based bootloader target
+pkg.author: 
+pkg.homepage: 
+
+pkg.cflags: -DREGION_EU868

@@ -1,0 +1,33 @@
+syscfg.vals: 
+    #using a stlink with openocd on W10
+    OPENOCD_STLINK_WINDOWS: 1
+
+    # turn off stuff not required in bootloader!
+    # check stack overflows NO
+    OS_CTX_SW_STACK_CHECK: 0
+    # call our CB for assert handling
+    OS_ASSERT_CB: 0
+    # no FILE/LINE info in assert calls
+    OS_CRASH_FILE_LINE: 0
+    
+    # bootloader should not start hw watchdog
+    WATCHDOG_INTERVAL : 0
+
+    #Not using the serial download
+    UART_0: 0
+    
+    # anything that is initialised in BSP needs to be explicitly on or off
+    TIMER_0: 0
+    TIMER_1: 0
+    TIMER_2: 0
+    OS_CPUTIME_TIMER_NUM: -1
+
+    I2C_0: 0
+    I2S: 0
+    SPI_0_MASTER: 0
+    RTC: 0
+    ADC: 0
+
+    BSP_POWER_SETUP: 0
+    OS_TICKLESS_RTC: 0
+    UART_DBG: 0

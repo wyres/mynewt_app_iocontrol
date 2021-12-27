@@ -1,0 +1,3 @@
+target.app: "@mcuboot/boot/mynewt"
+target.bsp: "@wyres-gitlab-mynewt-bsp/w_base"
+target.build_profile: optimized

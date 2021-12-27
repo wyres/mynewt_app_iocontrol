@@ -29,11 +29,15 @@
 #include "app-core/app_core.h"
 #include "app-core/app_msg.h"
 
+#include "onewire.h"
+#include "DS18B20.h"
+
 // Use the PTI module id, as won't have both at same time
 #define MY_MOD_ID   (APP_MOD_PTI)
 
 // IO setup types. Note IO_OUTPUT_TYPE : all input types should be before this guy, all output types after
-typedef enum { IO_DIN=0, IO_BUTTON, IO_BUTTON_LINKED, IO_STATE, IO_AIN, IO_OUTPUT_TYPE, IO_PWMOUT, IO_DOUT } IO_TYPE;
+typedef enum { IO_DIN=0, IO_BUTTON, IO_BUTTON_LINKED, IO_STATE, IO_AIN, IO_DS18B20, IO_USDIST_TRIG, IO_USDIST_INTR, 
+                IO_OUTPUT_TYPE, IO_PWMOUT, IO_DOUT } IO_TYPE;
 
 // Number of managed IOs related to the syscfg defines being 0-7 : don't change it...
 #define NB_IOS  (8)
@@ -58,6 +62,7 @@ static struct appctx {
 static void defineIO(int ioid, int gpio, const char* name, IO_TYPE t, GPIO_IDLE_TYPE pull, uint8_t initialValue);
 static void initIOs();
 static void deinitIOs();
+static void startIOs();
 static void readIOs();
 static uint8_t readIO(int ioid);
 static void writeIO(int ioid);
@@ -69,6 +74,7 @@ static bool isOut(IO_TYPE t);
 // My api functions
 static uint32_t start() {
     log_debug("MIO:start:1s");
+    startIOs();
     return 1*1000;
 }
 
@@ -136,6 +142,36 @@ void mod_io_init(void) {
 
 }
 
+// TODO implement
+static uint32_t usdist_read(int8_t trig, int8_t intr) {
+    return 0;
+}
+
+static uint32_t ds18B20_read(int8_t pin) {
+    uint32_t ret = 0;
+    log_info("try to read DS18B20 on pin %d", pin);
+    // Simplistic case of single sensor on wire : read first address and read its temp
+    unsigned char addr[8];
+    addr[0]=0xBA;
+    addr[1]=0xD0;
+    if (ds18B20_getSingleAddress(pin, addr)) {
+        // note first byte of address tells you device type : 0x28 = DS18B20
+        log_info("device responded, got an address starting %02x %02x", addr[0], addr[1]);
+        ret = ds18B20_getTemperatureInt(pin, addr);
+        log_info("got temp %d", ret);
+        return ret;
+    } else {
+        // if the addr values were overwritten, then bad crc, else didn't init so no device present
+        if (addr[0]==0xBA) {
+            log_warn("no device responds on onewire bus");
+        } else {
+            log_warn("badness getting onewire addr : %02x%02x%02x%02x%02x%02x%02x%02x", 
+                    addr[0], addr[1], addr[2], addr[3], addr[4], addr[5], addr[6], addr[7]);
+        }
+        return 0;
+    }
+
+}
 
 // internals
 static bool isOut(IO_TYPE t) {
@@ -180,6 +216,27 @@ static void initIOs() {
                     GPIO_define_adc(_ctx.ios[i].name, _ctx.ios[i].gpio, _ctx.ios[i].gpio, LP_DOZE, HIGH_Z);
                     break;
                 }
+                case IO_DS18B20: {
+                    log_info("MIO:IO%d[%s] DS18B20[%d]", i, _ctx.ios[i].name, _ctx.ios[i].gpio);
+                    // define as input in gpio mgr for low power management
+                    GPIO_define_in(_ctx.ios[i].name, _ctx.ios[i].gpio, _ctx.ios[i].pull, LP_DOZE, HIGH_Z);
+                    uint32_t val = ds18B20_read(_ctx.ios[i].gpio);
+                    log_info("DS18B20 reads value %d", val);
+                    break;
+                }
+                case IO_USDIST_TRIG: {
+                    log_info("MIO:IO%d[%s] USDIST_TRIG[%d]", i, _ctx.ios[i].name, _ctx.ios[i].gpio);
+                    // define as ?? to drive US distance measurment sensor
+                    GPIO_define_out(_ctx.ios[i].name, _ctx.ios[i].gpio, 0, LP_DOZE, HIGH_Z);
+                    break;
+                }
+                case IO_USDIST_INTR: {
+                    log_info("MIO:IO%d[%s] USDIST_INTR[%d]", i, _ctx.ios[i].name, _ctx.ios[i].gpio);
+                    // define as ?? to drive US distance measurment sensor
+                    GPIO_define_in(_ctx.ios[i].name, _ctx.ios[i].gpio, _ctx.ios[i].pull, LP_DOZE, HIGH_Z);
+                    break;
+                }
+                
                 case IO_BUTTON: 
                 case IO_BUTTON_LINKED:          // same button setup for both
                 {
@@ -222,6 +279,30 @@ static void deinitIOs() {
     // Not required, GPIO mgr takes care of low powering
 }
 
+// start an io if sensor requires it
+static uint8_t startIO(int ioid) {
+    if (ioid>=0 && ioid<NB_IOS) {
+        if (_ctx.ios[ioid].gpio>=0) {
+            switch (_ctx.ios[ioid].type) {
+                case IO_DS18B20: {
+                    if (ds18B20_broadcastConvert(_ctx.ios[ioid].gpio)) {
+                        log_info("DS18B20 on %d init and broadcast convert ok", _ctx.ios[ioid].gpio);
+                    } else {
+                        log_info("DS18B20 on %d no response from init when trying to start", _ctx.ios[ioid].gpio);
+                    }
+                    break;
+                }
+                default: {
+                    // ignore
+                    break;
+                }
+            }
+        }
+        return _ctx.ios[ioid].valueUL;
+    }
+    return 0;
+}
+
 // Read an io
 static uint8_t readIO(int ioid) {
     if (ioid>=0 && ioid<NB_IOS) {
@@ -233,6 +314,14 @@ static uint8_t readIO(int ioid) {
                 }
                 case IO_AIN: {
                     _ctx.ios[ioid].valueUL = (uint8_t)GPIO_readADC(_ctx.ios[ioid].gpio);
+                    break;
+                }
+                case IO_DS18B20: {
+                    _ctx.ios[ioid].valueUL = ds18B20_read(_ctx.ios[ioid].gpio);
+                    break;
+                }
+                case IO_USDIST_TRIG: {
+                    _ctx.ios[ioid].valueUL = usdist_read(0,0);
                     break;
                 }
                 // Button dealt with by callback, its value is the last press type (not the press/release 1/0 value)
@@ -276,6 +365,12 @@ static void readIOs() {
     }
 }
 
+// initialise/start ios that require time to do their stuff
+static void startIOs() {
+    for(int i=0;i<NB_IOS;i++) {
+        startIO(i);      // deals with invalid or output cases by ignoring them
+    }
+}
 // DL action setting output ios
 static void iosetAction(uint8_t* v, uint8_t l) {
     // Check got the right number of bytes

@@ -1,0 +1,14 @@
+mfg.name: wbasev2_io_eu868_ipev_dev
+mfg.bootloader: wbasev2_bootloader       #"targets/wbasev2_bootloader"
+
+mfg.targets:
+    - wbasev2_bootloader:
+      name: "targets/wbasev2_bootloader"
+      offset: 0x0
+      area: FLASH_AREA_MFG
+    - wbasev2_io_eu868_ipev_dev:
+      name: "targets/wbasev2_io_eu868_ipev_dev"
+      offset: 0x0000c000
+      area: FLASH_AREA_MFG
+mfg.meta:
+    area: FLASH_AREA_MFG

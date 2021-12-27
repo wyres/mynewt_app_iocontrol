@@ -22,6 +22,7 @@ project.name: "mynewt_app_iocontrol"
 project.repositories:
     - apache-mynewt-core
     - mynewt-wproto-bsp
+    - wyres-gitlab-mynewt-bsp
     - mcuboot
     - lorawan
     - app-generic
@@ -47,6 +48,11 @@ repository.mynewt-wproto-bsp:
     type: git
     vers: 0.0.0
     url: 'https://github.com/wyres/mynewt-wproto-bsp.git'
+
+repository.wyres-gitlab-mynewt-bsp:
+    type: git
+    vers: 0.0.0
+    url: 'https://github.com/wyres/mynewt-wbasev2-bsp.git'
 
 repository.lorawan:
     type: github

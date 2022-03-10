@@ -31,3 +31,34 @@ To debug OpenOCD is recommended, used with VisualStudio Code and an ST-Link v2 S
 
 Specific IO:
 See the readme in the app directory for details on creating new mynewt targets for specific cabling of the card IO.
+ 
+# MyNewt project structure
+A quick overview..
+ 
+Starting with the project mynewt_app_iocontrol (sorry for the french):
+
+ project.yml
+ - Ceci décrit les ‘repos’ utilisé par le projet (qui se trouve dans ./repos) et leur origin git
+ - En principe le ‘newt upgrade’ les cherche, mais il est plus sur de les recouperer par git clone à la main (en créent les noms de repetoires correspondant dans ./repos…)
+
+ ./targets 
+- chaqu’un contient le configuration dans leurs fichers yml le build pour leur cas (quel carte, config lora, etc)
+-	pour faire les hex, il y a aussi du config pour chaque target dans ./mfgs à faire
+-	le target ‘wproto_io_eu868_none_dev’ sera le bon bon pour commencer
+
+ ./repos: Les projets git utiliser par ce projet :
+-	Apache-mynewt-core : le noyau mynewt qui propose l’acces au hw, system de taches, etc
+-	App-generic : framework application  pour creér une application de type capteur/actuateur’, qui s’occupe de tout la partie démarrage, console, config, connexion lorawan, boucle d’execution en machine à etat. Les capteurs ou autres action sont en forme de ‘modules’. Voir le readme.md dans le app-core repetoire du project git
+-	Generic : blocks de code C utilitaires, pour diverse outils.. Par exemple, gérer du config, construire un machine à etat,  des drivers de capteurs, gérer les logs, etc. Plus ou moins independant du noyau mynewt… Inclut aussi une api ‘lorawan’ qui encapcule le stack lorawan du project ‘lorawan’..
+-	Lorawan : Une portage sur mynewt de la stack lorawan stackforce.
+-	Mcuboot : bootloader en version mynewt
+-	Mynew-proto-bsp : BSP for W_PROTO card (schema ci-joint)
+-	Wyres-gitlab-nynewt-bsp : BSP for W_BASEV2 card
+
+ ./apps:
+-	code spécific to this projet : 
+-	main.c, qui demarre le ‘app-geneic’, qui gere tout le reste de l’execution
+-	mod_io.c, qui est le module pour faire les actions sur les GPIOs selon le config qu’il trouve dans le syscfg.yml…
+-	onewire.c/DS18820.c, un driver pour une capteur temperature avec le protocol onewire
+
+

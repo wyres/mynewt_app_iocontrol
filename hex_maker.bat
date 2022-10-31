@@ -7,10 +7,11 @@ if "%TARGET%"=="boot" (
     echo "Building bootloader for wbasev2"
     newt clean wbasev2_bootloader || EXIT /B 1
     newt build wbasev2_bootloader || EXIT /B 1
-:: gotta be in 'boot' not '@mcuboot' for mfg image build, sometimes newt doesn't put it there.. tell user
-    echo "check that the dir %BASE%/bin/targets/wbasev2_bootloader/app/boot exists and if not copy from %BASE%/bin/targets/wbasev2_bootloader/app/@mcuboot/boot"
-::    rm %BASE%/bin/targets/wbasev2_bootloader/app/boot
-::    cp -r %BASE%/bin/targets/wbasev2_bootloader/app/@mcuboot/boot %BASE%/bin/targets/wbasev2_bootloader/app/
+:: gotta be in 'boot' not '@mcuboot' for mfg image build, newer version of newt doesn't put it there.. check and fix
+    if not exist %BASE%\bin\targets\wbasev2_bootloader\app\boot\ (
+        echo "build created @mcuboot, copying to boot in %BASE%/bin/targets/wbasev2_bootloader/app"
+        cp -r %BASE%/bin/targets/wbasev2_bootloader/app/@mcuboot/boot %BASE%/bin/targets/wbasev2_bootloader/app/
+    )
     exit /B 0
 )
 if "%TARGET%"=="version" (

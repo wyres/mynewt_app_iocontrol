@@ -7,10 +7,13 @@ To build the project, ensure that you have:
  - 'newt' build tool version 1.8 or later (from the apache mynewt project)
  - 'gcc' tool set for cross-compile to arm (gcc-arm-none-eabi package, version 2.35 or later : eg the gcc-arm-none-eabi-9-2019-q4-major-win32.zip package)
 
+NOTE: recent update to hex_maker.bat and to apacheèmynewt-core fork due to new versions of newt (didn't put the bootloader build in the right place) and gcc (over zealous array bounds checking)...
+
 The easiest way to run the build is just to use the hex_maker.bat at the command line (with mingw64 or MSys2 shell):
 ```
 > hex_maker.bat <mynewt target name>
 ```
+Even if you are just running the newt commands in linux, look at the batch file to see the good order (and the wee hack for the bootloader build)
 
 This will produce in the 'built' directory:
  - <targetname>.elf
@@ -20,7 +23,10 @@ This will produce in the 'built' directory:
  
 (The individual commands in this batch file can be executed directly at the command line if you want.)
 
-The .hex contains the bootloader and the app, ready to load directly in the STM32 using (for example) st-util.exe with an st-link. 
+The .hex file contains both the the bootloader and the app, ready to load directly in the STM32 using (for example) st-util.exe with an st-link. 
+
+ Note: before bui_lding the main application target, you MUST build at least once the boot loader target (hex_maker.bat boot) so it is available to be merged into the combined 'manufacturing' hex file.
+ 
 
 The .elfs contain the debug info neccessary for GDB type debugging - the 'current.elf' is the last build done so that your debugger run script can just 
 reference this rather than explicit target names (in the case where you have multiple different targets in the same project)

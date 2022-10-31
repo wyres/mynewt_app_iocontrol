@@ -1,7 +1,12 @@
 @echo on
-:: flash the app hex file name in %1 to the attached target using a st-linkv2 (you can also use the st-tool directly)
-:: you should have madee hex image first using hex_maker.bat
+:: avoid env corruption
+SETLOCAL 
+
+:: get command name and cmd dir in case
+SET me=%~n0
+SET parent=%~dp0
 set BASE=%CD%
+:: you should have madee hex image first using newt
 :: and now flash it
 set OPENOCD=c:/soft/openocd-0.10.0
 :: openocd limitation : scripts MUST use a full path not relative one?

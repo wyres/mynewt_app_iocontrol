@@ -4,6 +4,14 @@ set BASE=%CD%
 set TARGET=%1
 if "%TARGET%"=="boot" (
 :: must do a newt build on the bootloader before building main app targets to be able to make a full manufacturing image
+    echo "Building bootloader for wproto"
+    newt clean wproto_bootloader || EXIT /B 1
+    newt build wproto_bootloader || EXIT /B 1
+:: gotta be in 'boot' not '@mcuboot' for mfg image build, newer version of newt doesn't put it there.. check and fix
+    if not exist %BASE%\bin\targets\wproto_bootloader\app\boot\ (
+        echo "build created @mcuboot, copying to boot in %BASE%/bin/targets/wproto_bootloader/app"
+        cp -r %BASE%/bin/targets/wproto_bootloader/app/@mcuboot/boot %BASE%/bin/targets/wproto_bootloader/app/
+    )
     echo "Building bootloader for wbasev2"
     newt clean wbasev2_bootloader || EXIT /B 1
     newt build wbasev2_bootloader || EXIT /B 1

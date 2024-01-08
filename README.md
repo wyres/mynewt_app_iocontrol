@@ -37,7 +37,25 @@ To debug OpenOCD is recommended, used with VisualStudio Code and an ST-Link v2 S
 
 Specific IO:
 See the readme in the app directory for details on creating new mynewt targets for specific cabling of the card IO.
- 
+
+## Linux version
+
+Building the hex file
+```
+./hex_maker.sh wbasev2_bootloader # only on time per base
+
+./hex_maker.sh wbasev2_io_eu868_river_prod
+```
+
+Building the config file including the DEVEUI APPKEY and other config.
+```
+./flash_config.sh <DEVEUI> <APPKEY>
+```
+This will generate a config_DEVEUI.hex file that you will flash after the main hex file (example after wbasev2_io_eu868_river_prod.hex)
+
+
+You can generate multiple config file with `genconfig.sh`. You must create a file with the APPKEY, one APPKEY per line. Then edit the genconfig.sh. This will call flash_config.sh multiple time with the generated DEVEUI and the APPKEY from the file.
+
 # MyNewt project structure
 A quick overview..
  
